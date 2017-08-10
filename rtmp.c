@@ -4049,6 +4049,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
       else
         {
 	  wrote = WriteN(r, header, nChunkSize + hSize);
+      r->m_nBytesSent += wrote;
 	  if (!wrote)
 	    return FALSE;
 	}
@@ -4088,6 +4089,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
   if (tbuf)
     {
       int wrote = WriteN(r, tbuf, toff-tbuf);
+      r->m_nBytesSent += wrote;
       free(tbuf);
       tbuf = NULL;
       if (!wrote)
