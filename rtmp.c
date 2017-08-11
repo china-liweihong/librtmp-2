@@ -172,6 +172,12 @@ RTMP_UserInterrupt()
   RTMP_ctrlC = TRUE;
 }
 
+int64_t
+RTMP_GetBytesWritten(RTMP *r)
+{
+  return r->m_nBytesSent;
+}
+
 void
 RTMPPacket_Reset(RTMPPacket *p)
 {

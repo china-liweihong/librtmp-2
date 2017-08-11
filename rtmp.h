@@ -344,6 +344,7 @@ extern "C"
 
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
+  int64_t RTMP_GetBytesWritten(RTMP *r);
 
   int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);
