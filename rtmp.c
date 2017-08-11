@@ -135,7 +135,7 @@ static void HandleServerBW(RTMP *r, const RTMPPacket *packet);
 static void HandleClientBW(RTMP *r, const RTMPPacket *packet);
 
 static int ReadN(RTMP *r, char *buffer, int n);
-static int WriteN(RTMP *r, const char *buffer, int n);
+static int WriteN(RTMP *r, const char *buffer, int n, int64_t * bytesWritten);
 
 static void DecodeTEA(AVal *key, AVal *text);
 
@@ -1078,7 +1078,7 @@ SocksNegotiate(RTMP *r)
       0
     };				/* NULL terminate */
 
-    WriteN(r, packet, sizeof packet);
+    WriteN(r, packet, sizeof packet, NULL);
 
     if (ReadN(r, packet, 8) != 8)
       return FALSE;
@@ -1499,7 +1499,7 @@ ReadN(RTMP *r, char *buffer, int n)
 }
 
 static int
-WriteN(RTMP *r, const char *buffer, int n)
+WriteN(RTMP *r, const char *buffer, int n, int64_t * bytesWritten)
 {
   const char *ptr = buffer;
 #ifdef CRYPTO
@@ -1544,6 +1544,9 @@ WriteN(RTMP *r, const char *buffer, int n)
       if (nBytes == 0)
 	break;
 
+      if (bytesWritten != NULL) {
+        *bytesWritten += nBytes;
+      }
       n -= nBytes;
       ptr += nBytes;
     }
@@ -3765,7 +3768,7 @@ HandShake(RTMP *r, int FP9HandShake)
     clientsig[i] = (char)(rand() % 256);
 #endif
 
-  if (!WriteN(r, clientbuf, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, clientbuf, RTMP_SIG_SIZE + 1, NULL))
     return FALSE;
 
   if (ReadN(r, &type, 1) != 1)	/* 0x03 or 0x06 */
@@ -3790,7 +3793,7 @@ HandShake(RTMP *r, int FP9HandShake)
       serversig[4], serversig[5], serversig[6], serversig[7]);
 
   /* 2nd part of handshake */
-  if (!WriteN(r, serversig, RTMP_SIG_SIZE))
+  if (!WriteN(r, serversig, RTMP_SIG_SIZE, NULL))
     return FALSE;
 
   if (ReadN(r, serversig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
@@ -3837,7 +3840,7 @@ SHandShake(RTMP *r)
     serversig[i] = (char)(rand() % 256);
 #endif
 
-  if (!WriteN(r, serverbuf, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, serverbuf, RTMP_SIG_SIZE + 1, NULL))
     return FALSE;
 
   if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
@@ -3853,7 +3856,7 @@ SHandShake(RTMP *r)
       clientsig[4], clientsig[5], clientsig[6], clientsig[7]);
 
   /* 2nd part of handshake */
-  if (!WriteN(r, clientsig, RTMP_SIG_SIZE))
+  if (!WriteN(r, clientsig, RTMP_SIG_SIZE, NULL))
     return FALSE;
 
   if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
@@ -3884,11 +3887,11 @@ RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
       /* save header bytes we're about to overwrite */
       memcpy(hbuf, ptr, chunk->c_headerSize);
       memcpy(ptr, chunk->c_header, chunk->c_headerSize);
-      wrote = WriteN(r, ptr, chunk->c_headerSize + chunk->c_chunkSize);
+      wrote = WriteN(r, ptr, chunk->c_headerSize + chunk->c_chunkSize, NULL);
       memcpy(ptr, hbuf, chunk->c_headerSize);
     }
   else
-    wrote = WriteN(r, chunk->c_header, chunk->c_headerSize);
+    wrote = WriteN(r, chunk->c_header, chunk->c_headerSize, NULL);
   return wrote;
 }
 
@@ -4048,8 +4051,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
 	}
       else
         {
-	  wrote = WriteN(r, header, nChunkSize + hSize);
-      r->m_nBytesSent += wrote;
+	  wrote = WriteN(r, header, nChunkSize + hSize, &r->m_nBytesSent);
 	  if (!wrote)
 	    return FALSE;
 	}
@@ -4088,8 +4090,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
     }
   if (tbuf)
     {
-      int wrote = WriteN(r, tbuf, toff-tbuf);
-      r->m_nBytesSent += wrote;
+      int wrote = WriteN(r, tbuf, toff-tbuf, &r->m_nBytesSent);
       free(tbuf);
       tbuf = NULL;
       if (!wrote)
