@@ -284,16 +284,16 @@ extern "C"
     int64_t m_nBytesSent;
   } RTMP;
 
-  int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
+  __declspec(dllexport) int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
 
-  void RTMP_ParsePlaypath(AVal *in, AVal *out);
-  void RTMP_SetBufferMS(RTMP *r, int size);
-  void RTMP_UpdateBufferMS(RTMP *r);
+  __declspec(dllexport) void RTMP_ParsePlaypath(AVal *in, AVal *out);
+  __declspec(dllexport) void RTMP_SetBufferMS(RTMP *r, int size);
+  __declspec(dllexport) void RTMP_UpdateBufferMS(RTMP *r);
 
-  int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
-  int RTMP_SetupURL(RTMP *r, char *url);
-  void RTMP_SetupStream(RTMP *r, int protocol,
+  __declspec(dllexport) int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
+  __declspec(dllexport) int RTMP_SetupURL(RTMP *r, char *url);
+  __declspec(dllexport) void RTMP_SetupStream(RTMP *r, int protocol,
 			AVal *hostname,
 			unsigned int port,
 			AVal *sockshost,
@@ -311,67 +311,67 @@ extern "C"
 			int dStart,
 			int dStop, int bLiveStream, long int timeout);
 
-  int RTMP_Connect(RTMP *r, RTMPPacket *cp);
+  __declspec(dllexport) int RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;
-  int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
-  int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
-  int RTMP_Serve(RTMP *r);
-  int RTMP_TLS_Accept(RTMP *r, void *ctx);
+  __declspec(dllexport) int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
+  __declspec(dllexport) int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
+  __declspec(dllexport) int RTMP_Serve(RTMP *r);
+  __declspec(dllexport) int RTMP_TLS_Accept(RTMP *r, void *ctx);
 
-  int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
-  int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
-  int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
-  int RTMP_IsConnected(RTMP *r);
-  int RTMP_Socket(RTMP *r);
-  int RTMP_IsTimedout(RTMP *r);
-  double RTMP_GetDuration(RTMP *r);
-  int RTMP_ToggleStream(RTMP *r);
+  __declspec(dllexport)  int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
+  __declspec(dllexport) int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
+  __declspec(dllexport) int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
+  __declspec(dllexport) int RTMP_IsConnected(RTMP *r);
+  __declspec(dllexport) int RTMP_Socket(RTMP *r);
+  __declspec(dllexport) int RTMP_IsTimedout(RTMP *r);
+  __declspec(dllexport) double RTMP_GetDuration(RTMP *r);
+  __declspec(dllexport) int RTMP_ToggleStream(RTMP *r);
 
-  int RTMP_ConnectStream(RTMP *r, int seekTime);
-  int RTMP_ReconnectStream(RTMP *r, int seekTime);
-  void RTMP_DeleteStream(RTMP *r);
-  int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
-  int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
+  __declspec(dllexport) int RTMP_ConnectStream(RTMP *r, int seekTime);
+  __declspec(dllexport) int RTMP_ReconnectStream(RTMP *r, int seekTime);
+  __declspec(dllexport) void RTMP_DeleteStream(RTMP *r);
+  __declspec(dllexport) int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
+  __declspec(dllexport) int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
 
-  void RTMP_Init(RTMP *r);
-  void RTMP_Close(RTMP *r);
-  RTMP *RTMP_Alloc(void);
-  void RTMP_Free(RTMP *r);
-  void RTMP_EnableWrite(RTMP *r);
+  __declspec(dllexport) void RTMP_Init(RTMP *r);
+  __declspec(dllexport) void RTMP_Close(RTMP *r);
+  __declspec(dllexport) RTMP *RTMP_Alloc(void);
+  __declspec(dllexport) void RTMP_Free(RTMP *r);
+  __declspec(dllexport) void RTMP_EnableWrite(RTMP *r);
 
-  void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
-  void RTMP_TLS_FreeServerContext(void *ctx);
+  __declspec(dllexport) void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
+  __declspec(dllexport) void RTMP_TLS_FreeServerContext(void *ctx);
 
-  int RTMP_LibVersion(void);
-  void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
-  int64_t RTMP_GetBytesWritten(RTMP *r);
+  __declspec(dllexport) int RTMP_LibVersion(void);
+  __declspec(dllexport) void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
+  __declspec(dllexport) int64_t RTMP_GetBytesWritten(RTMP *r);
 
-  int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
+  __declspec(dllexport) int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);
 
   /* caller probably doesn't know current timestamp, should
    * just use RTMP_Pause instead
    */
-  int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
-  int RTMP_Pause(RTMP *r, int DoPause);
+  __declspec(dllexport) int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
+  __declspec(dllexport) int RTMP_Pause(RTMP *r, int DoPause);
 
-  int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
+  __declspec(dllexport) int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
 
-  int RTMPSockBuf_Fill(RTMPSockBuf *sb);
-  int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
-  int RTMPSockBuf_Close(RTMPSockBuf *sb);
+  __declspec(dllexport) int RTMPSockBuf_Fill(RTMPSockBuf *sb);
+  __declspec(dllexport) int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
+  __declspec(dllexport) int RTMPSockBuf_Close(RTMPSockBuf *sb);
 
-  int RTMP_SendCreateStream(RTMP *r);
-  int RTMP_SendSeek(RTMP *r, int dTime);
-  int RTMP_SendServerBW(RTMP *r);
-  int RTMP_SendClientBW(RTMP *r);
-  void RTMP_DropRequest(RTMP *r, int i, int freeit);
-  int RTMP_Read(RTMP *r, char *buf, int size);
-  int RTMP_Write(RTMP *r, const char *buf, int size);
+  __declspec(dllexport) int RTMP_SendCreateStream(RTMP *r);
+  __declspec(dllexport) int RTMP_SendSeek(RTMP *r, int dTime);
+  __declspec(dllexport) int RTMP_SendServerBW(RTMP *r);
+  __declspec(dllexport) int RTMP_SendClientBW(RTMP *r);
+  __declspec(dllexport) void RTMP_DropRequest(RTMP *r, int i, int freeit);
+  __declspec(dllexport) int RTMP_Read(RTMP *r, char *buf, int size);
+  __declspec(dllexport) int RTMP_Write(RTMP *r, const char *buf, int size);
 
 /* hashswf.c */
-  int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
+  __declspec(dllexport) int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 		   int age);
 
 #ifdef __cplusplus

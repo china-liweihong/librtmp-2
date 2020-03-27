@@ -83,67 +83,67 @@ extern "C"
     int16_t p_UTCoffset;
   } AMFObjectProperty;
 
-  char *AMF_EncodeString(char *output, char *outend, const AVal * str);
-  char *AMF_EncodeNumber(char *output, char *outend, double dVal);
-  char *AMF_EncodeInt16(char *output, char *outend, short nVal);
-  char *AMF_EncodeInt24(char *output, char *outend, int nVal);
-  char *AMF_EncodeInt32(char *output, char *outend, int nVal);
-  char *AMF_EncodeBoolean(char *output, char *outend, int bVal);
+  __declspec(dllexport) char *AMF_EncodeString(char *output, char *outend, const AVal * str);
+  __declspec(dllexport) char *AMF_EncodeNumber(char *output, char *outend, double dVal);
+  __declspec(dllexport) char *AMF_EncodeInt16(char *output, char *outend, short nVal);
+  __declspec(dllexport) char *AMF_EncodeInt24(char *output, char *outend, int nVal);
+  __declspec(dllexport) char *AMF_EncodeInt32(char *output, char *outend, int nVal);
+  __declspec(dllexport) char *AMF_EncodeBoolean(char *output, char *outend, int bVal);
 
   /* Shortcuts for AMFProp_Encode */
-  char *AMF_EncodeNamedString(char *output, char *outend, const AVal * name, const AVal * value);
-  char *AMF_EncodeNamedNumber(char *output, char *outend, const AVal * name, double dVal);
-  char *AMF_EncodeNamedBoolean(char *output, char *outend, const AVal * name, int bVal);
+  __declspec(dllexport) char *AMF_EncodeNamedString(char *output, char *outend, const AVal * name, const AVal * value);
+  __declspec(dllexport) char *AMF_EncodeNamedNumber(char *output, char *outend, const AVal * name, double dVal);
+  __declspec(dllexport) char *AMF_EncodeNamedBoolean(char *output, char *outend, const AVal * name, int bVal);
 
-  unsigned short AMF_DecodeInt16(const char *data);
-  unsigned int AMF_DecodeInt24(const char *data);
-  unsigned int AMF_DecodeInt32(const char *data);
-  void AMF_DecodeString(const char *data, AVal * str);
-  void AMF_DecodeLongString(const char *data, AVal * str);
-  int AMF_DecodeBoolean(const char *data);
-  double AMF_DecodeNumber(const char *data);
+  __declspec(dllexport) unsigned short AMF_DecodeInt16(const char *data);
+  __declspec(dllexport) unsigned int AMF_DecodeInt24(const char *data);
+  __declspec(dllexport) unsigned int AMF_DecodeInt32(const char *data);
+  __declspec(dllexport) void AMF_DecodeString(const char *data, AVal * str);
+  __declspec(dllexport) void AMF_DecodeLongString(const char *data, AVal * str);
+  __declspec(dllexport) int AMF_DecodeBoolean(const char *data);
+  __declspec(dllexport) double AMF_DecodeNumber(const char *data);
 
-  char *AMF_Encode(AMFObject * obj, char *pBuffer, char *pBufEnd);
-  char *AMF_EncodeEcmaArray(AMFObject *obj, char *pBuffer, char *pBufEnd);
-  char *AMF_EncodeArray(AMFObject *obj, char *pBuffer, char *pBufEnd);
+  __declspec(dllexport) char *AMF_Encode(AMFObject * obj, char *pBuffer, char *pBufEnd);
+  __declspec(dllexport) char *AMF_EncodeEcmaArray(AMFObject *obj, char *pBuffer, char *pBufEnd);
+  __declspec(dllexport) char *AMF_EncodeArray(AMFObject *obj, char *pBuffer, char *pBufEnd);
 
-  int AMF_Decode(AMFObject * obj, const char *pBuffer, int nSize,
+  __declspec(dllexport) int AMF_Decode(AMFObject * obj, const char *pBuffer, int nSize,
 		 int bDecodeName);
-  int AMF_DecodeArray(AMFObject * obj, const char *pBuffer, int nSize,
+  __declspec(dllexport) int AMF_DecodeArray(AMFObject * obj, const char *pBuffer, int nSize,
 		      int nArrayLen, int bDecodeName);
-  int AMF3_Decode(AMFObject * obj, const char *pBuffer, int nSize,
+  __declspec(dllexport) int AMF3_Decode(AMFObject * obj, const char *pBuffer, int nSize,
 		  int bDecodeName);
-  void AMF_Dump(AMFObject * obj);
-  void AMF_Reset(AMFObject * obj);
+  __declspec(dllexport) void AMF_Dump(AMFObject * obj);
+  __declspec(dllexport) void AMF_Reset(AMFObject * obj);
 
-  void AMF_AddProp(AMFObject * obj, const AMFObjectProperty * prop);
-  int AMF_CountProp(AMFObject * obj);
-  AMFObjectProperty *AMF_GetProp(AMFObject * obj, const AVal * name,
+  __declspec(dllexport) void AMF_AddProp(AMFObject * obj, const AMFObjectProperty * prop);
+  __declspec(dllexport) int AMF_CountProp(AMFObject * obj);
+  __declspec(dllexport) AMFObjectProperty *AMF_GetProp(AMFObject * obj, const AVal * name,
 				 int nIndex);
 
-  AMFDataType AMFProp_GetType(AMFObjectProperty * prop);
-  void AMFProp_SetNumber(AMFObjectProperty * prop, double dval);
-  void AMFProp_SetBoolean(AMFObjectProperty * prop, int bflag);
-  void AMFProp_SetString(AMFObjectProperty * prop, AVal * str);
-  void AMFProp_SetObject(AMFObjectProperty * prop, AMFObject * obj);
+  __declspec(dllexport) AMFDataType AMFProp_GetType(AMFObjectProperty * prop);
+  __declspec(dllexport) void AMFProp_SetNumber(AMFObjectProperty * prop, double dval);
+  __declspec(dllexport) void AMFProp_SetBoolean(AMFObjectProperty * prop, int bflag);
+  __declspec(dllexport) void AMFProp_SetString(AMFObjectProperty * prop, AVal * str);
+  __declspec(dllexport) void AMFProp_SetObject(AMFObjectProperty * prop, AMFObject * obj);
 
-  void AMFProp_GetName(AMFObjectProperty * prop, AVal * name);
-  void AMFProp_SetName(AMFObjectProperty * prop, AVal * name);
-  double AMFProp_GetNumber(AMFObjectProperty * prop);
-  int AMFProp_GetBoolean(AMFObjectProperty * prop);
-  void AMFProp_GetString(AMFObjectProperty * prop, AVal * str);
-  void AMFProp_GetObject(AMFObjectProperty * prop, AMFObject * obj);
+  __declspec(dllexport) void AMFProp_GetName(AMFObjectProperty * prop, AVal * name);
+  __declspec(dllexport) void AMFProp_SetName(AMFObjectProperty * prop, AVal * name);
+  __declspec(dllexport) double AMFProp_GetNumber(AMFObjectProperty * prop);
+  __declspec(dllexport) int AMFProp_GetBoolean(AMFObjectProperty * prop);
+  __declspec(dllexport) void AMFProp_GetString(AMFObjectProperty * prop, AVal * str);
+  __declspec(dllexport) void AMFProp_GetObject(AMFObjectProperty * prop, AMFObject * obj);
 
-  int AMFProp_IsValid(AMFObjectProperty * prop);
+  __declspec(dllexport) int AMFProp_IsValid(AMFObjectProperty * prop);
 
-  char *AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, char *pBufEnd);
-  int AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer,
+  __declspec(dllexport) char *AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, char *pBufEnd);
+  __declspec(dllexport) int AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer,
 		      int nSize, int bDecodeName);
-  int AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer,
+  __declspec(dllexport) int AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer,
 		     int nSize, int bDecodeName);
 
-  void AMFProp_Dump(AMFObjectProperty * prop);
-  void AMFProp_Reset(AMFObjectProperty * prop);
+  __declspec(dllexport) void AMFProp_Dump(AMFObjectProperty * prop);
+  __declspec(dllexport) void AMFProp_Reset(AMFObjectProperty * prop);
 
   typedef struct AMF3ClassDef
   {
@@ -154,8 +154,8 @@ extern "C"
     AVal *cd_props;
   } AMF3ClassDef;
 
-  void AMF3CD_AddProp(AMF3ClassDef * cd, AVal * prop);
-  AVal *AMF3CD_GetProp(AMF3ClassDef * cd, int idx);
+  __declspec(dllexport) void AMF3CD_AddProp(AMF3ClassDef * cd, AVal * prop);
+  __declspec(dllexport) AVal *AMF3CD_GetProp(AMF3ClassDef * cd, int idx);
 
 #ifdef __cplusplus
 }

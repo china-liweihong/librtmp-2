@@ -28,10 +28,16 @@
 #include <ws2tcpip.h>
 
 #ifdef _MSC_VER	/* MSVC */
-#define snprintf _snprintf
-#define strcasecmp stricmp
-#define strncasecmp strnicmp
-#define vsnprintf _vsnprintf
+//#define snprintf _snprintf
+//#define vsnprintf _vsnprintf
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#define open _open
+#define fdopen _fdopen
+#define close _close
+#define strdup _strdup
+#define unlink _unlink
+#define off_t int64_t
 #endif
 
 #define GetSockError()	WSAGetLastError()
