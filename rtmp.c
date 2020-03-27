@@ -4438,7 +4438,7 @@ static int
 HTTP_read(RTMP *r, int fill)
 {
   char *ptr;
-  int hlen;
+  long hlen;
 
 restart:
   if (fill)
@@ -4464,7 +4464,9 @@ restart:
   }
   if (!ptr)
     return -1;
-  hlen = atoi(ptr+16);
+  hlen = strtol(ptr+16, NULL, 10);
+  if (hlen < 1 || hlen > INT_MAX)
+    return -1;
   ptr = strstr(ptr+16, "\r\n\r\n");
   if (!ptr)
     return -1;
