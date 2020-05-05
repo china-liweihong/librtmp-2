@@ -811,7 +811,7 @@ HandShake(RTMP * r, int FP9HandShake)
   RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
 
-  if (!WriteN(r, (char *)clientsig-1, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, (char *)clientsig-1, RTMP_SIG_SIZE + 1, NULL))
     return FALSE;
 
   if (ReadN(r, (char *)&type, 1) != 1)	/* 0x03 or 0x06 */
@@ -965,7 +965,7 @@ HandShake(RTMP * r, int FP9HandShake)
     __FUNCTION__);
   RTMP_LogHex(RTMP_LOGDEBUG, reply, RTMP_SIG_SIZE);
 #endif
-  if (!WriteN(r, (char *)reply, RTMP_SIG_SIZE))
+  if (!WriteN(r, (char *)reply, RTMP_SIG_SIZE, NULL))
     return FALSE;
 
   /* 2nd part of handshake */
@@ -1198,7 +1198,7 @@ SHandShake(RTMP * r)
   RTMP_Log(RTMP_LOGDEBUG2, "Serversig: ");
   RTMP_LogHex(RTMP_LOGDEBUG2, serversig, RTMP_SIG_SIZE);
 
-  if (!WriteN(r, (char *)serversig-1, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, (char *)serversig-1, RTMP_SIG_SIZE + 1, NULL))
     return FALSE;
 
   /* decode client response */
@@ -1325,7 +1325,7 @@ SHandShake(RTMP * r)
     __FUNCTION__);
   RTMP_LogHex(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
-  if (!WriteN(r, (char *)clientsig, RTMP_SIG_SIZE))
+  if (!WriteN(r, (char *)clientsig, RTMP_SIG_SIZE, NULL))
     return FALSE;
 
   /* 2nd part of handshake */

@@ -37,7 +37,7 @@
 #define close _close
 #define strdup _strdup
 #define unlink _unlink
-#define off_t int64_t
+//#define off_t int64_t
 #endif
 
 #define GetSockError()	WSAGetLastError()
