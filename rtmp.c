@@ -178,7 +178,10 @@ void RTMP_UserInterrupt()
 int64_t
 RTMP_GetBytesWritten(RTMP *r)
 {
-  return r->m_nBytesSent;
+  g_rec_mutex_lock(&r->m_mutex);
+  int64_t res = r->m_nBytesSent;
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 void RTMPPacket_Reset(RTMPPacket *p)
@@ -1208,13 +1211,17 @@ SocksNegotiate(RTMP *r)
 
 int RTMP_ConnectStream(RTMP *r, int seekTime)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet = {0};
 
   /* seekTime was already set by SetupStream / SetupURL.
    * This is only needed by ReconnectStream.
    */
   if (seekTime > 0)
+  {
     r->Link.seekTime = seekTime;
+  }
 
   r->m_mediaChannel = 0;
 
@@ -1223,7 +1230,9 @@ int RTMP_ConnectStream(RTMP *r, int seekTime)
     if (RTMPPacket_IsReady(&packet))
     {
       if (!packet.m_nBodySize)
+      {
         continue;
+      }
       if ((packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) ||
           (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) ||
           (packet.m_packetType == RTMP_PACKET_TYPE_INFO))
@@ -1238,52 +1247,75 @@ int RTMP_ConnectStream(RTMP *r, int seekTime)
     }
   }
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return r->m_bPlaying;
 }
 
 int RTMP_ReconnectStream(RTMP *r, int seekTime)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMP_DeleteStream(r);
 
   RTMP_SendCreateStream(r);
 
-  return RTMP_ConnectStream(r, seekTime);
+  int res = RTMP_ConnectStream(r, seekTime);
+
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int RTMP_ToggleStream(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   int res;
 
   if (!r->m_pausing)
   {
     if (RTMP_IsTimedout(r) && r->m_read.status == RTMP_READ_EOF)
+    {
       r->m_read.status = 0;
+    }
 
     res = RTMP_SendPause(r, TRUE, r->m_pauseStamp);
     if (!res)
+    {
+      g_rec_mutex_unlock(&r->m_mutex);
       return res;
+    }
 
     r->m_pausing = 1;
     sleep(1);
   }
   res = RTMP_SendPause(r, FALSE, r->m_pauseStamp);
   r->m_pausing = 3;
+  g_rec_mutex_unlock(&r->m_mutex);
   return res;
 }
 
 void RTMP_DeleteStream(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   if (r->m_stream_id < 0)
+  {
+    g_rec_mutex_unlock(&r->m_mutex);
     return;
+  }
 
   r->m_bPlaying = FALSE;
 
   SendDeleteStream(r, r->m_stream_id);
   r->m_stream_id = -1;
+
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   int bHasMediaPacket = 0;
 
   while (!bHasMediaPacket && RTMP_IsConnected(r) && RTMP_ReadPacket(r, packet))
@@ -1319,15 +1351,22 @@ int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet)
   }
 
   if (bHasMediaPacket)
+  {
     r->m_bPlaying = TRUE;
+  }
   else if (r->m_sb.sb_timedout && !r->m_pausing)
+  {
     r->m_pauseStamp = r->m_mediaChannel < r->m_channelsAllocatedIn ? r->m_channelTimestamp[r->m_mediaChannel] : 0;
+  }
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return bHasMediaPacket;
 }
 
 int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   int bHasMediaPacket = 0;
   switch (packet->m_packetType)
   {
@@ -1400,20 +1439,10 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
                __FUNCTION__, packet->m_nBodySize);
       /*RTMP_LogHex(packet.m_body, packet.m_nBodySize); */
 
-      /* some DEBUG code */
-#if 0
-	   RTMP_LIB_AMFObject obj;
-	   int nRes = obj.Decode(packet.m_body+1, packet.m_nBodySize-1);
-	   if(nRes < 0) {
-	   RTMP_Log(RTMP_LOGERROR, "%s, error decoding AMF3 packet", __FUNCTION__);
-	   /*return; */
-	   }
-
-	   obj.Dump();
-#endif
-
       if (HandleInvoke(r, packet->m_body + 1, packet->m_nBodySize - 1) == 1)
+      {
         bHasMediaPacket = 2;
+      }
       break;
     }
   case RTMP_PACKET_TYPE_INFO:
@@ -1466,7 +1495,9 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
       pos += (11 + dataSize + 4);
     }
     if (!r->m_pausing)
+    {
       r->m_mediaStamp = nTimeStamp;
+    }
 
     /* FLV tag(s) */
     /*RTMP_Log(RTMP_LOGDEBUG, "%s, received: FLV tag(s) %lu bytes", __FUNCTION__, packet.m_nBodySize); */
@@ -1481,6 +1512,7 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 #endif
   }
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return bHasMediaPacket;
 }
 
@@ -1821,6 +1853,8 @@ SAVC(createStream);
 
 int RTMP_SendCreateStream(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
   char *enc;
@@ -1840,7 +1874,9 @@ int RTMP_SendCreateStream(RTMP *r)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, TRUE);
+  int res = RTMP_SendPacket(r, &packet, TRUE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 SAVC(FCSubscribe);
@@ -1848,6 +1884,8 @@ SAVC(FCSubscribe);
 static int
 SendFCSubscribe(RTMP *r, AVal *subscribepath)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[512], *pend = pbuf + sizeof(pbuf);
   char *enc;
@@ -1867,11 +1905,16 @@ SendFCSubscribe(RTMP *r, AVal *subscribepath)
   enc = AMF_EncodeString(enc, pend, subscribepath);
 
   if (!enc)
+  {
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
+  }
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, TRUE);
+  int res = RTMP_SendPacket(r, &packet, TRUE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 /* Justin.tv specific authentication */
@@ -2067,6 +2110,8 @@ SAVC(pause);
 
 int RTMP_SendPause(RTMP *r, int DoPause, int iTime)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
   char *enc;
@@ -2089,20 +2134,32 @@ int RTMP_SendPause(RTMP *r, int DoPause, int iTime)
   packet.m_nBodySize = enc - packet.m_body;
 
   RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%d", __FUNCTION__, DoPause, iTime);
-  return RTMP_SendPacket(r, &packet, TRUE);
+
+  int res = RTMP_SendPacket(r, &packet, TRUE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int RTMP_Pause(RTMP *r, int DoPause)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   if (DoPause)
+  {
     r->m_pauseStamp = r->m_mediaChannel < r->m_channelsAllocatedIn ? r->m_channelTimestamp[r->m_mediaChannel] : 0;
-  return RTMP_SendPause(r, DoPause, r->m_pauseStamp);
+  }
+
+  int res = RTMP_SendPause(r, DoPause, r->m_pauseStamp);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 SAVC(seek);
 
 int RTMP_SendSeek(RTMP *r, int iTime)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
   char *enc;
@@ -2126,11 +2183,15 @@ int RTMP_SendSeek(RTMP *r, int iTime)
   r->m_read.flags |= RTMP_READ_SEEKING;
   r->m_read.nResumeTS = 0;
 
-  return RTMP_SendPacket(r, &packet, TRUE);
+  int res = RTMP_SendPacket(r, &packet, TRUE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int RTMP_SendServerBW(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
 
@@ -2145,11 +2206,16 @@ int RTMP_SendServerBW(RTMP *r)
   packet.m_nBodySize = 4;
 
   AMF_EncodeInt32(packet.m_body, pend, r->m_nServerBW);
-  return RTMP_SendPacket(r, &packet, FALSE);
+
+  int res = RTMP_SendPacket(r, &packet, FALSE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int RTMP_SendClientBW(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
 
@@ -2165,7 +2231,10 @@ int RTMP_SendClientBW(RTMP *r)
 
   AMF_EncodeInt32(packet.m_body, pend, r->m_nClientBW);
   packet.m_body[4] = r->m_nClientBW2;
-  return RTMP_SendPacket(r, &packet, FALSE);
+
+  int res = RTMP_SendPacket(r, &packet, FALSE);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 static int
@@ -2429,6 +2498,8 @@ The type of Ping packet is 0x4 and contains two mandatory parameters and two opt
 */
 int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
   int nSize;
@@ -2486,7 +2557,10 @@ int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime
       buf = AMF_EncodeInt32(buf, pend, nTime);
   }
 
-  return RTMP_SendPacket(r, &packet, FALSE);
+  int res = RTMP_SendPacket(r, &packet, FALSE);
+
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 static void
@@ -2506,7 +2580,9 @@ AV_erase(RTMP_METHOD *vals, int *num, int i, int freeit)
 
 void RTMP_DropRequest(RTMP *r, int i, int freeit)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   AV_erase(r->m_methodCalls, &r->m_numCalls, i, freeit);
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 static void
@@ -3993,6 +4069,7 @@ SHandShake(RTMP *r)
 
 int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   int wrote;
   char hbuf[RTMP_MAX_HEADER_SIZE];
 
@@ -4010,7 +4087,11 @@ int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
     memcpy(ptr, hbuf, chunk->c_headerSize);
   }
   else
+  {
     wrote = WriteN(r, chunk->c_header, chunk->c_headerSize, NULL);
+  }
+
+  g_rec_mutex_unlock(&r->m_mutex);
   return wrote;
 }
 
@@ -5101,6 +5182,8 @@ static const char flvHeader[] = {'F', 'L', 'V', 0x01,
 #define HEADERBUF (128 * 1024)
 int RTMP_Read(RTMP *r, char *buf, int size)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   int nRead = 0, total = 0;
 
   /* can't continue */
@@ -5109,9 +5192,11 @@ fail:
   {
   case RTMP_READ_EOF:
   case RTMP_READ_COMPLETE:
+    g_rec_mutex_unlock(&r->m_mutex);
     return 0;
   case RTMP_READ_ERROR: /* corrupted stream, resume failed */
     SetSockError(EINVAL);
+    g_rec_mutex_unlock(&r->m_mutex);
     return -1;
   default:
     break;
@@ -5201,17 +5286,25 @@ fail:
   while (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
   {
     if (!nRead)
+    {
       continue;
+    }
     buf += nRead;
     total += nRead;
     size -= nRead;
     break;
   }
   if (nRead < 0)
+  {
     r->m_read.status = nRead;
+  }
 
   if (size < 0)
+  {
     total += size;
+  }
+
+  g_rec_mutex_unlock(&r->m_mutex);
   return total;
 }
 
@@ -5219,6 +5312,8 @@ static const AVal av_setDataFrame = AVC("@setDataFrame");
 
 int RTMP_Write(RTMP *r, const char *buf, int size)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMPPacket *pkt = &r->m_write;
   char *pend, *enc;
   int s2 = size, ret, num;
@@ -5233,6 +5328,7 @@ int RTMP_Write(RTMP *r, const char *buf, int size)
       if (size < 11)
       {
         /* FLV pkt too small */
+        g_rec_mutex_unlock(&r->m_mutex);
         return 0;
       }
 
@@ -5257,7 +5353,9 @@ int RTMP_Write(RTMP *r, const char *buf, int size)
       {
         pkt->m_headerType = RTMP_PACKET_SIZE_LARGE;
         if (pkt->m_packetType == RTMP_PACKET_TYPE_INFO)
+        {
           pkt->m_nBodySize += 16;
+        }
       }
       else
       {
@@ -5267,6 +5365,7 @@ int RTMP_Write(RTMP *r, const char *buf, int size)
       if (!RTMPPacket_Alloc(pkt, pkt->m_nBodySize))
       {
         RTMP_Log(RTMP_LOGDEBUG, "%s, failed to allocate packet", __FUNCTION__);
+        g_rec_mutex_unlock(&r->m_mutex);
         return FALSE;
       }
       enc = pkt->m_body;
@@ -5283,7 +5382,10 @@ int RTMP_Write(RTMP *r, const char *buf, int size)
     }
     num = pkt->m_nBodySize - pkt->m_nBytesRead;
     if (num > s2)
+    {
       num = s2;
+    }
+
     memcpy(enc, buf, num);
     pkt->m_nBytesRead += num;
     s2 -= num;
@@ -5294,12 +5396,19 @@ int RTMP_Write(RTMP *r, const char *buf, int size)
       RTMPPacket_Free(pkt);
       pkt->m_nBytesRead = 0;
       if (!ret)
+      {
+        g_rec_mutex_unlock(&r->m_mutex);
         return -1;
+      }
       buf += 4;
       s2 -= 4;
       if (s2 < 0)
+      {
         break;
+      }
     }
   }
+
+  g_rec_mutex_unlock(&r->m_mutex);
   return size + s2;
 }
