@@ -322,7 +322,7 @@ extern "C"
   __declspec(dllexport) int RTMP_Serve(RTMP *r);
   __declspec(dllexport) int RTMP_TLS_Accept(RTMP *r, void *ctx);
 
-  __declspec(dllexport)  int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
+  __declspec(dllexport) int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
   __declspec(dllexport) int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
   __declspec(dllexport) int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
   __declspec(dllexport) int RTMP_IsConnected(RTMP *r);

@@ -1144,7 +1144,6 @@ int RTMP_Connect(RTMP *r, RTMPPacket *cp)
     /* Connect via SOCKS */
     if (!add_addr_info(&service, &r->Link.sockshost, r->Link.socksport))
     {
-
       g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
@@ -1154,7 +1153,6 @@ int RTMP_Connect(RTMP *r, RTMPPacket *cp)
     /* Connect directly */
     if (!add_addr_info(&service, &r->Link.hostname, r->Link.port))
     {
-
       g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
@@ -3662,6 +3660,8 @@ EncodeInt32LE(char *output, int nVal)
 
 int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   uint8_t hbuf[RTMP_MAX_HEADER_SIZE] = {0};
   char *header = (char *)hbuf;
   int nSize, hSize, nToRead, nChunk;
@@ -3673,6 +3673,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   if (ReadN(r, (char *)hbuf, 1) == 0)
   {
     RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header", __FUNCTION__);
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
 
@@ -3685,6 +3686,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header 2nd byte",
                __FUNCTION__);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     packet->m_nChannel = hbuf[1];
@@ -3698,6 +3700,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header 3nd byte",
                __FUNCTION__);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     tmp = (hbuf[2] << 8) + hbuf[1];
@@ -3722,6 +3725,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     if (!timestamp || !packets)
     {
       r->m_channelsAllocatedIn = 0;
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     memset(r->m_channelTimestamp + r->m_channelsAllocatedIn, 0, sizeof(int) * (n - r->m_channelsAllocatedIn));
@@ -3745,6 +3749,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   {
     RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header. type: %x",
              __FUNCTION__, (unsigned int)hbuf[0]);
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
 
@@ -3778,6 +3783,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, failed to read extended timestamp",
                __FUNCTION__);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     packet->m_nTimeStamp = AMF_DecodeInt32(header + nSize);
@@ -3791,6 +3797,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     if (!RTMPPacket_Alloc(packet, packet->m_nBodySize))
     {
       RTMP_Log(RTMP_LOGDEBUG, "%s, failed to allocate packet", __FUNCTION__);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     didAlloc = TRUE;
@@ -3815,6 +3822,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   {
     RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet body. len: %u",
              __FUNCTION__, packet->m_nBodySize);
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
 
@@ -3850,6 +3858,7 @@ int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     packet->m_body = NULL; /* so it won't be erased on free */
   }
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
@@ -4007,6 +4016,7 @@ int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
 
 int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   const RTMPPacket *prevPacket;
   uint32_t last = 0;
   int nSize;
@@ -4026,6 +4036,7 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
       free(r->m_vecChannelsOut);
       r->m_vecChannelsOut = NULL;
       r->m_channelsAllocatedOut = 0;
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
     r->m_vecChannelsOut = packets;
@@ -4049,6 +4060,7 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
   {
     RTMP_Log(RTMP_LOGERROR, "sanity failed!! trying to send header of type: 0x%02x.",
              (unsigned char)packet->m_headerType);
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
 
@@ -4139,7 +4151,10 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
       tlen = chunks * (cSize + 1) + nSize + hSize;
       tbuf = malloc(tlen);
       if (!tbuf)
+      {
+        g_rec_mutex_unlock(&r->m_mutex);
         return FALSE;
+      }
       toff = tbuf;
     }
   }
@@ -4161,7 +4176,10 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
     {
       wrote = WriteN(r, header, nChunkSize + hSize, &r->m_nBytesSent);
       if (!wrote)
+      {
+        g_rec_mutex_unlock(&r->m_mutex);
         return FALSE;
+      }
     }
     nSize -= nChunkSize;
     buffer += nChunkSize;
@@ -4202,7 +4220,10 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
     free(tbuf);
     tbuf = NULL;
     if (!wrote)
+    {
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
+    }
   }
 
   /* we invoked a remote method */
@@ -4226,17 +4247,23 @@ int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
   if (!r->m_vecChannelsOut[packet->m_nChannel])
     r->m_vecChannelsOut[packet->m_nChannel] = malloc(sizeof(RTMPPacket));
   memcpy(r->m_vecChannelsOut[packet->m_nChannel], packet, sizeof(RTMPPacket));
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
 int RTMP_Serve(RTMP *r)
 {
-  return SHandShake(r);
+  g_rec_mutex_lock(&r->m_mutex);
+  int res = SHandShake(r);
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 void RTMP_Close(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   CloseInternal(r, 0);
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 static void
