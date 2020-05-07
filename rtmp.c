@@ -333,8 +333,6 @@ RTMP_Alloc()
     abort();
   }
 
-  g_rec_mutex_init(&r->m_mutex);
-
   return r;
 }
 
@@ -355,7 +353,9 @@ void RTMP_Init(RTMP *r)
 
 #ifdef CRYPTO
   if (!RTMP_TLS_ctx)
+  {
     RTMP_TLS_Init();
+  }
 #endif
 
   memset(r, 0, sizeof(RTMP));
@@ -371,7 +371,7 @@ void RTMP_Init(RTMP *r)
   r->Link.timeout = 30;
   r->Link.swfAge = 30;
 
-  g_rec_mutex_unlock(&r->m_mutex);
+  g_rec_mutex_init(&r->m_mutex);
 }
 
 void RTMP_EnableWrite(RTMP *r)
@@ -1136,7 +1136,8 @@ int RTMP_Connect(RTMP *r, RTMPPacket *cp)
   g_rec_mutex_lock(&r->m_mutex);
 
   struct sockaddr_in service;
-  if (!r->Link.hostname.av_len) {
+  if (!r->Link.hostname.av_len)
+  {
     g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
