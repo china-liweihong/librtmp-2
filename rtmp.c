@@ -1136,8 +1136,10 @@ int RTMP_Connect(RTMP *r, RTMPPacket *cp)
   g_rec_mutex_lock(&r->m_mutex);
 
   struct sockaddr_in service;
-  if (!r->Link.hostname.av_len)
+  if (!r->Link.hostname.av_len) {
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
+  }
 
   memset(&service, 0, sizeof(struct sockaddr_in));
   service.sin_family = AF_INET;
@@ -1260,7 +1262,6 @@ int RTMP_ReconnectStream(RTMP *r, int seekTime)
   RTMP_SendCreateStream(r);
 
   int res = RTMP_ConnectStream(r, seekTime);
-
   g_rec_mutex_unlock(&r->m_mutex);
   return res;
 }
