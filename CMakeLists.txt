@@ -4,14 +4,20 @@ set(NAME librtmp-1)
 
 project(${NAME}, C)
 
+set(C_STANDARD 11)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 if (WIN32)
 
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_CXX_FLAGS_RELEASE /Zi /Ob0 /Od /RTC1 /MTd)
+    set(CMAKE_CXX_FLAGS_DEBUG /O2 /Ob2 /DNDEBUG /MT)
 
     add_definitions(
         -DUSE_GNUTLS
         -D_CRT_SECURE_NO_WARNINGS
         -D_WINSOCK_DEPRECATED_NO_WARNINGS
+        -DUNICODE
+        -D_UNICODE
     )
 
     include_directories(
@@ -46,6 +52,6 @@ if (UNIX)
     link_libraries()
 endif (UNIX)
 
-file(GLOB FILES *.c *.h)
+file(GLOB FILES *.c *.h c11/*.h)
 
-add_library(${NAME} SHARED ${FILES} )
+add_library(${NAME} SHARED ${FILES})
