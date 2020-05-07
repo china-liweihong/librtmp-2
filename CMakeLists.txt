@@ -22,6 +22,8 @@ if (WIN32)
 
     include_directories(
         C:/gstreamer/1.0/x86_64/include
+        C:/gstreamer/1.0/x86_64/include/glib-2.0
+        C:/gstreamer/1.0/x86_64/lib/glib-2.0/include
     )
 
     link_directories(
@@ -36,6 +38,7 @@ if (WIN32)
         gmp.lib
         hogweed.lib
         z.lib
+        glib-2.0.lib
     )
 
 endif (WIN32)
@@ -52,6 +55,6 @@ if (UNIX)
     link_libraries()
 endif (UNIX)
 
-file(GLOB FILES *.c *.h c11/*.h)
+file(GLOB FILES *.c *.h)
 
 add_library(${NAME} SHARED ${FILES})

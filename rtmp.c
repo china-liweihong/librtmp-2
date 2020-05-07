@@ -23,14 +23,16 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <time.h>
 
-#include "rtmp_sys.h"
+#include <glib.h>
+
 #include "log.h"
+#include "rtmp_sys.h"
 
 #ifdef CRYPTO
 #ifdef USE_POLARSSL
@@ -322,18 +324,33 @@ RTMP_TLS_FreeServerContext(void *ctx)
 RTMP *
 RTMP_Alloc()
 {
-  return calloc(1, sizeof(RTMP));
+  RTMP * r =  calloc(1, sizeof(RTMP));
+  
+  if (r == NULL) {
+    abort();
+  }
+
+  g_rec_mutex_init(&r->m_mutex);
+
+  return r;
 }
 
 void
 RTMP_Free(RTMP *r)
 {
+  if (r == NULL) {
+    abort();
+  }
+
+  g_rec_mutex_clear(&r->m_mutex);
   free(r);
 }
 
 void
 RTMP_Init(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
 #ifdef CRYPTO
   if (!RTMP_TLS_ctx)
     RTMP_TLS_Init();
@@ -351,48 +368,68 @@ RTMP_Init(RTMP *r)
   r->m_fVideoCodecs = 252.0;
   r->Link.timeout = 30;
   r->Link.swfAge = 30;
+
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 void
 RTMP_EnableWrite(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   r->Link.protocol |= RTMP_FEATURE_WRITE;
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 double
 RTMP_GetDuration(RTMP *r)
 {
-  return r->m_fDuration;
+  g_rec_mutex_lock(&r->m_mutex);
+  double res = r->m_fDuration;
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int
 RTMP_IsConnected(RTMP *r)
 {
-  return r->m_sb.sb_socket != -1;
+  g_rec_mutex_lock(&r->m_mutex);
+  int res = r->m_sb.sb_socket != -1;
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int
 RTMP_Socket(RTMP *r)
 {
-  return r->m_sb.sb_socket;
+  g_rec_mutex_lock(&r->m_mutex);
+  int res = r->m_sb.sb_socket;
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 int
 RTMP_IsTimedout(RTMP *r)
 {
-  return r->m_sb.sb_timedout;
+  g_rec_mutex_lock(&r->m_mutex);
+  int res = r->m_sb.sb_timedout;
+  g_rec_mutex_unlock(&r->m_mutex);
+  return res;
 }
 
 void
 RTMP_SetBufferMS(RTMP *r, int size)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   r->m_nBufferMS = size;
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 void
 RTMP_UpdateBufferMS(RTMP *r)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 #undef OSS
@@ -457,6 +494,8 @@ RTMP_SetupStream(RTMP *r,
 		 int dStart,
 		 int dStop, int bLiveStream, long int timeout)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   RTMP_Log(RTMP_LOGDEBUG, "Protocol : %s", RTMPProtocolStrings[protocol&7]);
   RTMP_Log(RTMP_LOGDEBUG, "Hostname : %.*s", host->av_len, host->av_val);
   RTMP_Log(RTMP_LOGDEBUG, "Port     : %d", port);
@@ -544,6 +583,8 @@ RTMP_SetupStream(RTMP *r,
       else
 	r->Link.port = 1935;
     }
+
+  g_rec_mutex_unlock(&r->m_mutex);
 }
 
 enum { OPT_STR=0, OPT_INT, OPT_BOOL, OPT_CONN };
@@ -718,8 +759,10 @@ parseAMF(AMFObject *obj, AVal *av, int *depth)
 
 int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg)
 {
-  int i;
-  void *v;
+  g_rec_mutex_lock(&r->m_mutex);
+  
+  int i = 0;
+  void * v = NULL;
 
   for (i=0; options[i].name.av_len; i++) {
     if (opt->av_len != options[i].name.av_len) continue;
@@ -745,8 +788,10 @@ int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg)
       }
       break;
     case OPT_CONN:
-      if (parseAMF(&r->Link.extras, arg, &r->Link.edepth))
+      if (parseAMF(&r->Link.extras, arg, &r->Link.edepth)) {
+        g_rec_mutex_unlock(&r->m_mutex);
         return FALSE;
+      }
       break;
     }
     break;
@@ -754,14 +799,18 @@ int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg)
   if (!options[i].name.av_len) {
     RTMP_Log(RTMP_LOGERROR, "Unknown option %s", opt->av_val);
     RTMP_OptUsage();
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
   }
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
 int RTMP_SetupURL(RTMP *r, char *url)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   AVal opt, arg;
   char *p1, *p2, *ptr = strchr(url, ' ');
   int ret, len;
@@ -773,8 +822,10 @@ int RTMP_SetupURL(RTMP *r, char *url)
   len = strlen(url);
   ret = RTMP_ParseURL(url, &r->Link.protocol, &r->Link.hostname,
   	&port, &r->Link.playpath0, &r->Link.app);
-  if (!ret)
+  if (!ret) {
+    g_rec_mutex_unlock(&r->m_mutex);
     return ret;
+  }
   r->Link.port = port;
   r->Link.playpath = r->Link.playpath0;
 
@@ -804,8 +855,10 @@ int RTMP_SetupURL(RTMP *r, char *url)
     for (p1=p2; port >0;) {
       if (*p1 == '\\') {
 	unsigned int c;
-	if (port < 3)
+	if (port < 3) {
+    g_rec_mutex_unlock(&r->m_mutex);
 	  return FALSE;
+  }
 	sscanf(p1+1, "%02x", &c);
 	*p2++ = c;
 	port -= 3;
@@ -818,8 +871,10 @@ int RTMP_SetupURL(RTMP *r, char *url)
     arg.av_len = p2 - arg.av_val;
 
     ret = RTMP_SetOpt(r, &opt, &arg);
-    if (!ret)
+    if (!ret) {
+      g_rec_mutex_unlock(&r->m_mutex);
       return ret;
+    }
   }
 
   if (!r->Link.tcUrl.av_len)
@@ -869,6 +924,8 @@ int RTMP_SetupURL(RTMP *r, char *url)
       else
 	r->Link.port = 1935;
     }
+  
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
@@ -911,6 +968,8 @@ finish:
 int
 RTMP_Connect0(RTMP *r, struct sockaddr * service)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   int on = 1;
   r->m_sb.sb_timedout = FALSE;
   r->m_pausing = 0;
@@ -925,6 +984,7 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
 	  RTMP_Log(RTMP_LOGERROR, "%s, failed to connect socket. %d (%s)",
 	      __FUNCTION__, err, strerror(err));
 	  RTMP_Close(r);
+    g_rec_mutex_unlock(&r->m_mutex);
 	  return FALSE;
 	}
 
@@ -935,6 +995,7 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "%s, SOCKS negotiation failed.", __FUNCTION__);
 	      RTMP_Close(r);
+        g_rec_mutex_unlock(&r->m_mutex);
 	      return FALSE;
 	    }
 	}
@@ -943,6 +1004,7 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, failed to create socket. Error: %d", __FUNCTION__,
 	  GetSockError());
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
 
@@ -959,22 +1021,27 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
 
   setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on));
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
 int
 RTMP_TLS_Accept(RTMP *r, void *ctx)
 {
+  g_rec_mutex_lock(&r->m_mutex);
 #if defined(CRYPTO) && !defined(NO_SSL)
   TLS_server(ctx, r->m_sb.sb_ssl);
   TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
   if (TLS_accept(r->m_sb.sb_ssl) < 0)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, TLS_Connect failed", __FUNCTION__);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 #else
+  g_rec_mutex_unlock(&r->m_mutex);
   return FALSE;
 #endif
 }
@@ -982,6 +1049,7 @@ RTMP_TLS_Accept(RTMP *r, void *ctx)
 int
 RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
+  g_rec_mutex_lock(&r->m_mutex);
   if (r->Link.protocol & RTMP_FEATURE_SSL)
     {
 #if defined(CRYPTO) && !defined(NO_SSL)
@@ -991,11 +1059,13 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 	{
 	  RTMP_Log(RTMP_LOGERROR, "%s, TLS_Connect failed", __FUNCTION__);
 	  RTMP_Close(r);
+    g_rec_mutex_unlock(&r->m_mutex);
 	  return FALSE;
 	}
 #else
       RTMP_Log(RTMP_LOGERROR, "%s, no SSL/TLS support", __FUNCTION__);
       RTMP_Close(r);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
 
 #endif
@@ -1011,6 +1081,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 	  r->m_msgCounter = 0;
 	  RTMP_Log(RTMP_LOGDEBUG, "%s, Could not connect for handshake", __FUNCTION__);
 	  RTMP_Close(r);
+    g_rec_mutex_unlock(&r->m_mutex);
 	  return 0;
 	}
       r->m_msgCounter = 0;
@@ -1020,6 +1091,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, handshake failed.", __FUNCTION__);
       RTMP_Close(r);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
   RTMP_Log(RTMP_LOGDEBUG, "%s, handshaked", __FUNCTION__);
@@ -1028,14 +1100,18 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, RTMP connect failed.", __FUNCTION__);
       RTMP_Close(r);
+      g_rec_mutex_unlock(&r->m_mutex);
       return FALSE;
     }
+  g_rec_mutex_unlock(&r->m_mutex);
   return TRUE;
 }
 
 int
 RTMP_Connect(RTMP *r, RTMPPacket *cp)
 {
+  g_rec_mutex_lock(&r->m_mutex);
+
   struct sockaddr_in service;
   if (!r->Link.hostname.av_len)
     return FALSE;
@@ -1046,21 +1122,30 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
   if (r->Link.socksport)
     {
       /* Connect via SOCKS */
-      if (!add_addr_info(&service, &r->Link.sockshost, r->Link.socksport))
-	return FALSE;
+      if (!add_addr_info(&service, &r->Link.sockshost, r->Link.socksport)) {
+
+        g_rec_mutex_unlock(&r->m_mutex);
+        return FALSE;
+      }
     }
   else
     {
       /* Connect directly */
-      if (!add_addr_info(&service, &r->Link.hostname, r->Link.port))
-	return FALSE;
+      if (!add_addr_info(&service, &r->Link.hostname, r->Link.port)) {
+
+        g_rec_mutex_unlock(&r->m_mutex);
+        return FALSE;
+      }
     }
 
-  if (!RTMP_Connect0(r, (struct sockaddr *)&service))
+  if (!RTMP_Connect0(r, (struct sockaddr *)&service)) {
+    g_rec_mutex_unlock(&r->m_mutex);
     return FALSE;
+  }
 
   r->m_bSendCounter = TRUE;
 
+  g_rec_mutex_unlock(&r->m_mutex);
   return RTMP_Connect1(r, cp);
 }
 

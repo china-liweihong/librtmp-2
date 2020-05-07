@@ -32,6 +32,9 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <glib.h>
+
+typedef struct _GRecMutex RecMutex;
 
 #include "amf.h"
 
@@ -236,6 +239,7 @@ extern "C"
 
   typedef struct RTMP
   {
+    GRecMutex m_mutex;
     int m_inChunkSize;
     int m_outChunkSize;
     int m_nBWCheckCounter;
